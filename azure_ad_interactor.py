@@ -1,22 +1,36 @@
-import itertools
-
-from azure.identity import DefaultAzureCredential
-from requests import Session
-
 import json
+from dataclasses import dataclass
+from typing import Union, Optional
+
+from azure.identity import DefaultAzureCredential, ClientSecretCredential
+from requests import Session
 
 
 def log(data):
     print(json.dumps(data, default=str))
 
 
+DEFAULT_ROLE_DISPLAY_NAMES = {"User", "msiam_access"}
+
+
+@dataclass
+class AzureADInteractorConfig:
+    client_id: str
+    tenant_id: str
+    client_secret: str
+
+
 # AZURE_CLIENT_ID, AZURE_TENANT_ID and AZURE_CLIENT_SECRET environment variables must be set!
 class AzureActiveDirectoryInteractor:
     request_session: Session = Session()
     microsoft_graph_url: str = "https://graph.microsoft.com/v1.0"
-    credential: DefaultAzureCredential = DefaultAzureCredential()
+    credential: Union[DefaultAzureCredential, ClientSecretCredential]
 
-    def __init__(self):
+    def __init__(self, config: Optional[AzureADInteractorConfig] = None):
+        if config is not None:
+            self.credential = ClientSecretCredential(**vars(config))
+        else:
+            self.credential = DefaultAzureCredential()
         self.refresh_azure_token()
 
     def refresh_azure_token(self):
@@ -69,4 +83,3 @@ def _service_principal_has_custom_roles(service_principal):
     non_default_roles = [role for role in service_principal_data["appRoles"]
                          if role["displayName"] not in DEFAULT_ROLE_DISPLAY_NAMES and role["isEnabled"]]
     return len(non_default_roles) > 0
-
